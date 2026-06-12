@@ -418,3 +418,15 @@ client.once('clientReady', async () => {
 });
 
 client.login(config.token);
+
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled rejection:', error.message);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error.message);
+});
+
+client.on('error', (error) => {
+  console.error('Client error:', error.message);
+});

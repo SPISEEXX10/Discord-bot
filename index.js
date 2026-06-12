@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 const config = {
   token: process.env.DISCORD_TOKEN,
@@ -21,12 +21,10 @@ const config = {
     'SUPPORT', 'MEDIA', 'MODERATOR', 'ML.MODERATOR', 'HELPER',
   ],
 
-  tickets: {
-    modRoleName: 'MODERATOR',
-    categoryId: '1514652390283018311',
-    channelPrefix: 'ticket-',
-    panelTitle: '🎫 Поддержка',
-    panelDescription: 'Нажми кнопку ниже чтобы открыть тикет.\nМодераторы ответят как можно скорее.',
+  application: {
+    panelTitle: '📋 Заявка в клан',
+    panelDescription: 'Нажми кнопку ниже чтобы подать заявку.\nМодераторы рассмотрят её как можно скорее.',
+    resultChannelId: '1514861190386286622',
   },
 };
 
@@ -112,175 +110,115 @@ function isIgnored(member) {
 }
 
 // ============================================================
-// ТИКЕТЫ
+// ЗАЯВКИ
 // ============================================================
 
-async function sendTicketPanel(channel) {
+async function sendApplicationPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle(config.tickets.panelTitle)
-    .setDescription(config.tickets.panelDescription)
-    .setFooter({ text: 'Один открытый тикет на пользователя' });
+    .setTitle(config.application.panelTitle)
+    .setDescription(config.application.panelDescription);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('ticket_create')
-      .setLabel('📩 Открыть тикет')
+      .setCustomId('app_open')
+      .setLabel('Подать заявку')
       .setStyle(ButtonStyle.Primary)
   );
 
   await channel.send({ embeds: [embed], components: [row] });
 }
 
-async function createTicketChannel(guild, user) {
-  const ticketConf = config.tickets;
-  const modRole = guild.roles.cache.find(r => r.name.toUpperCase() === ticketConf.modRoleName.toUpperCase());
-
-  const permissionOverwrites = [
-    {
-      id: guild.roles.everyone.id,
-      deny: [PermissionFlagsBits.ViewChannel],
-    },
-    {
-      id: user.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.AttachFiles,
-      ],
-    },
-    {
-      id: guild.members.me.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ManageChannels,
-        PermissionFlagsBits.ReadMessageHistory,
-      ],
-    },
-  ];
-
-  if (modRole) {
-    permissionOverwrites.push({
-      id: modRole.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.ManageMessages,
-        PermissionFlagsBits.AttachFiles,
-      ],
-    });
-  }
-
-  const channelOptions = {
-    name: `${ticketConf.channelPrefix}${user.username}`,
-    type: ChannelType.GuildText,
-    permissionOverwrites,
-    topic: `Тикет пользователя ${user.tag} | ID: ${user.id}`,
-  };
-
-  if (ticketConf.categoryId) {
-    channelOptions.parent = ticketConf.categoryId;
-  }
-
-  const ticketChannel = await guild.channels.create(channelOptions);
-
-  const welcomeEmbed = new EmbedBuilder()
-    .setColor(0x57f287)
-    .setTitle('Тикет открыт')
-    .setDescription(`Привет, <@${user.id}>! Опиши свою проблему, модератор ответит как можно скорее.`)
-    .setTimestamp();
-
-  const closeRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('ticket_close')
-      .setLabel('🔒 Закрыть тикет')
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  await ticketChannel.send({
-    content: modRole ? `<@${user.id}> | <@&${modRole.id}>` : `<@${user.id}>`,
-    embeds: [welcomeEmbed],
-    components: [closeRow],
-  });
-
-  return ticketChannel;
-}
-
-async function closeTicket(channel, closedBy) {
-  const closeEmbed = new EmbedBuilder()
-    .setColor(0xed4245)
-    .setTitle('🔒 Тикет закрывается')
-    .setDescription(`Закрыто модератором <@${closedBy.id}>. Канал удалится через 5 секунд.`)
-    .setTimestamp();
-
-  await channel.send({ embeds: [closeEmbed] });
-  await sendLog(channel.guild, makeLogEmbed(
-    0xed4245,
-    '🎫 Тикет закрыт',
-    `Канал \`${channel.name}\` закрыт`,
-    [{ name: 'Закрыл', value: `<@${closedBy.id}>`, inline: true }]
-  ));
-
-  setTimeout(() => channel.delete('Тикет закрыт').catch(() => {}), 5000);
-}
-
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isButton()) {
-    if (interaction.customId === 'ticket_create') {
-      await interaction.deferReply({ ephemeral: true });
 
-      const guild = interaction.guild;
-      const user = interaction.user;
+  // Кнопка — открыть модальное окно
+  if (interaction.isButton() && interaction.customId === 'app_open') {
+    const modal = new ModalBuilder()
+      .setCustomId('app_modal')
+      .setTitle('Подать заявку');
 
-      const existing = guild.channels.cache.find(
-        ch => ch.name === `${config.tickets.channelPrefix}${user.username}` && ch.type === ChannelType.GuildText
-      );
+    const nicknameInput = new TextInputBuilder()
+      .setCustomId('nickname')
+      .setLabel('Ваш ник в игре')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-      if (existing) {
-        return interaction.editReply({ content: `У тебя уже есть открытый тикет: <#${existing.id}>` });
-      }
+    const ageInput = new TextInputBuilder()
+      .setCustomId('age')
+      .setLabel('Сколько вам лет?')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-      try {
-        const ticketCh = await createTicketChannel(guild, user);
-        await interaction.editReply({ content: `Тикет создан: <#${ticketCh.id}>` });
-        await sendLog(guild, makeLogEmbed(
-          0x57f287,
-          '🎫 Новый тикет',
-          `<@${user.id}> открыл тикет`,
-          [{ name: 'Канал', value: `<#${ticketCh.id}>`, inline: true }]
-        ));
-      } catch (e) {
-        console.error('Ошибка создания тикета:', e);
-        await interaction.editReply({ content: 'Не удалось создать тикет. Проверь права бота.' });
-      }
-      return;
-    }
+    const activityInput = new TextInputBuilder()
+      .setCustomId('activity')
+      .setLabel('Готовы активить от 2 часов в войсках?')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-    if (interaction.customId === 'ticket_close') {
-      const member = interaction.member;
-      const isMod =
-        member.permissions.has(PermissionFlagsBits.ManageMessages) ||
-        member.permissions.has(PermissionFlagsBits.Administrator) ||
-        member.roles.cache.some(r => r.name.toUpperCase() === config.tickets.modRoleName.toUpperCase());
+    const cheatInput = new TextInputBuilder()
+      .setCustomId('cheat')
+      .setLabel('Какой у вас чит?')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-      if (!isMod) {
-        return interaction.reply({ content: '❌ Только модераторы могут закрывать тикеты.', ephemeral: true });
-      }
+    const sourceInput = new TextInputBuilder()
+      .setCustomId('source')
+      .setLabel('Откуда узнали о нашем клане?')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
 
-      await interaction.reply({ content: 'Закрываю тикет...', ephemeral: true });
-      await closeTicket(interaction.channel, interaction.user);
-    }
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(nicknameInput),
+      new ActionRowBuilder().addComponents(ageInput),
+      new ActionRowBuilder().addComponents(activityInput),
+      new ActionRowBuilder().addComponents(cheatInput),
+      new ActionRowBuilder().addComponents(sourceInput),
+    );
+
+    await interaction.showModal(modal);
+    return;
   }
 
-  if (interaction.isChatInputCommand() && interaction.commandName === 'ticket-panel') {
-    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Только для администраторов.', ephemeral: true });
+  // Получение заполненной формы
+  if (interaction.isModalSubmit() && interaction.customId === 'app_modal') {
+    const nickname = interaction.fields.getTextInputValue('nickname');
+    const age = interaction.fields.getTextInputValue('age');
+    const activity = interaction.fields.getTextInputValue('activity');
+    const cheat = interaction.fields.getTextInputValue('cheat');
+    const source = interaction.fields.getTextInputValue('source');
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('Новая заявка в клан')
+      .addFields(
+        { name: 'Ник в игре', value: nickname },
+        { name: 'Возраст', value: age },
+        { name: 'Активность (2+ часа в войсках)', value: activity },
+        { name: 'Чит', value: cheat },
+        { name: 'Откуда узнал о клане', value: source },
+      )
+      .setFooter({ text: `${interaction.user.username} · ${interaction.user.id}` })
+      .setTimestamp();
+
+    try {
+      const resultChannel = interaction.guild.channels.cache.get(config.application.resultChannelId);
+      if (resultChannel) {
+        await resultChannel.send({ embeds: [embed] });
+      }
+      await interaction.reply({ content: 'Заявка отправлена! Модераторы рассмотрят её в ближайшее время.', ephemeral: true });
+    } catch (e) {
+      console.error('Ошибка отправки заявки:', e);
+      await interaction.reply({ content: 'Не удалось отправить заявку. Попробуй позже.', ephemeral: true });
     }
-    await sendTicketPanel(interaction.channel);
-    await interaction.reply({ content: '✅ Панель тикетов отправлена!', ephemeral: true });
+    return;
+  }
+
+  if (interaction.isChatInputCommand() && interaction.commandName === 'app-panel') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: 'Только для администраторов.', ephemeral: true });
+    }
+    await sendApplicationPanel(interaction.channel);
+    await interaction.reply({ content: 'Панель заявок отправлена!', ephemeral: true });
   }
 });
 
@@ -305,7 +243,7 @@ client.on('messageCreate', async (message) => {
     const muteResult = await muteMember(member, 'Реклама другого сервера', durationMs);
     if (muteResult) {
       await sendLog(message.guild, makeLogEmbed(
-        0xe74c3c, '🔗 Инвайт на другой сервер',
+        0xe74c3c, 'Инвайт на другой сервер',
         `${tag} получил мут на ${config.muteDurationMinutes} мин.`,
         [{ name: 'Канал', value: `<#${message.channelId}>`, inline: true }]
       ));
@@ -318,7 +256,7 @@ client.on('messageCreate', async (message) => {
     const muteResult = await muteMember(member, 'Отправка ссылок', durationMs);
     if (muteResult) {
       await sendLog(message.guild, makeLogEmbed(
-        0xe67e22, '🔗 Ссылка в чате',
+        0xe67e22, 'Ссылка в чате',
         `${tag} получил мут на ${config.muteDurationMinutes} мин.`,
         [{ name: 'Канал', value: `<#${message.channelId}>`, inline: true }]
       ));
@@ -332,7 +270,7 @@ client.on('messageCreate', async (message) => {
     const muteResult = await muteMember(member, `Спам тегами (${mentionCount})`, durationMs);
     if (muteResult) {
       await sendLog(message.guild, makeLogEmbed(
-        0x9b59b6, '📣 Спам тегами',
+        0x9b59b6, 'Спам тегами',
         `${tag} получил мут на ${config.muteDurationMinutes} мин.`,
         [{ name: 'Тегов', value: `${mentionCount}`, inline: true }, { name: 'Канал', value: `<#${message.channelId}>`, inline: true }]
       ));
@@ -359,7 +297,7 @@ client.on('messageCreate', async (message) => {
     const muteResult = await muteMember(member, 'Спам сообщениями', durationMs);
     if (muteResult) {
       await sendLog(message.guild, makeLogEmbed(
-        0x3498db, '🚨 Спам сообщениями',
+        0x3498db, 'Спам сообщениями',
         `${tag} получил мут на ${config.muteDurationMinutes} мин.`,
         [{ name: 'Сообщений', value: `${history.length} за ${config.spam.windowSeconds} сек.`, inline: true }]
       ));
@@ -372,13 +310,13 @@ client.on('messageCreate', async (message) => {
 // ============================================================
 
 client.once('ready', async () => {
-  console.log(`✅ Бот запущен как ${client.user.tag}`);
+  console.log(`Бот запущен как ${client.user.tag}`);
   try {
     await client.guilds.cache.get('1514647929732988948')?.commands.create({
-      name: 'ticket-panel',
-      description: 'Отправить панель создания тикетов (только для админов)',
+      name: 'app-panel',
+      description: 'Отправить панель заявок в клан (только для админов)',
     });
-    console.log('✅ Команда /ticket-panel зарегистрирована');
+    console.log('Команда /app-panel зарегистрирована');
   } catch (e) {
     console.error('Ошибка регистрации команды:', e.message);
   }

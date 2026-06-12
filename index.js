@@ -416,16 +416,8 @@ function callMistralOnce(userMessage) {
   });
 }
 
-async function callMistral(userMessage, retries = 2) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await callMistralOnce(userMessage);
-    } catch (e) {
-      console.error(`Mistral attempt ${i + 1} failed:`, e.message);
-      if (i < retries) await new Promise(r => setTimeout(r, 1500));
-      else throw e;
-    }
-  }
+async function callMistral(userMessage) {
+  return callMistralOnce(userMessage);
 }
 
 // ============================================================

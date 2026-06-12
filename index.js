@@ -432,12 +432,18 @@ async function callMistral(userMessage, retries = 2) {
 // АВТОМОДЕРАЦИЯ
 // ============================================================
 
+const processedMessages = new Set();
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
 
   // AI чат
   if (message.channelId === config.ai.channelId) {
+    if (processedMessages.has(message.id)) return;
+    processedMessages.add(message.id);
+    setTimeout(() => processedMessages.delete(message.id), 30000);
+
     const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
     const hasRole = member && config.ai.allowedRoleIds.some(id =>
       member.roles.cache.has(id)
@@ -454,7 +460,7 @@ client.on('messageCreate', async (message) => {
       await message.reply({ content: response });
     } catch (e) {
       console.error('Ошибка Mistral:', e.message || e);
-      await message.reply({ content: '⚠️ Ошибка AI: ' + (e.message || 'неизвестная ошибка') + '. Попробуй позже.' }).catch(() => {});
+      await message.reply({ content: '⚠️ Ошибка AI, попробуй позже.' }).catch(() => {});
     }
     return;
   }

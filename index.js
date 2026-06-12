@@ -23,7 +23,7 @@ const config = {
 
   tickets: {
     modRoleName: 'MODERATOR',
-    categoryId: '1514652460575359108',
+    categoryId: '1514652390283018311',
     channelPrefix: 'ticket-',
     panelTitle: '🎫 Поддержка',
     panelDescription: 'Нажми кнопку ниже чтобы открыть тикет.\nМодераторы ответят как можно скорее.',

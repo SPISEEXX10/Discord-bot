@@ -415,14 +415,16 @@ client.once('clientReady', async () => {
   try {
     const guild = client.guilds.cache.get('1514647929732988948');
     if (guild) {
-      // Удаляем все старые команды и регистрируем заново — без дублей
+      // Сбрасываем ВСЕ команды и регистрируем только одну
+      await guild.commands.set([]);
+      await client.application.commands.set([]);
       await guild.commands.set([
         {
           name: 'app-panel',
           description: 'Отправить панель заявок в клан (только для админов)',
         }
       ]);
-      console.log('Команда /app-panel зарегистрирована');
+      console.log('Все старые команды удалены, /app-panel зарегистрирована');
     }
   } catch (e) {
     console.error('Ошибка регистрации команды:', e.message);

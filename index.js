@@ -128,7 +128,13 @@ async function sendApplicationPanel(channel) {
   await channel.send({ embeds: [embed], components: [row] });
 }
 
+const processedInteractions = new Set();
+
 client.on('interactionCreate', async (interaction) => {
+  if (processedInteractions.has(interaction.id)) return;
+  processedInteractions.add(interaction.id);
+  setTimeout(() => processedInteractions.delete(interaction.id), 30000);
+
 
   // Кнопка — открыть модальное окно
   if (interaction.isButton() && interaction.customId === 'app_open') {

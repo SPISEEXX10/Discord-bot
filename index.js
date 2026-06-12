@@ -395,14 +395,22 @@ function callMistral(userMessage) {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
+          if (!json.choices || !json.choices[0]) {
+            console.error('Mistral bad response:', JSON.stringify(json));
+            return reject(new Error(json.error?.message || 'No choices in response'));
+          }
           resolve(json.choices[0].message.content.trim());
         } catch (e) {
+          console.error('Mistral parse error, raw response:', data);
           reject(e);
         }
       });
     });
 
-    req.on('error', reject);
+    req.on('error', (e) => {
+      console.error('Mistral request error:', e.message);
+      reject(e);
+    });
     req.write(payload);
     req.end();
   });
@@ -433,8 +441,8 @@ client.on('messageCreate', async (message) => {
       const response = await callMistral(message.content);
       await message.reply({ content: response });
     } catch (e) {
-      console.error('Ошибка Mistral:', e.message);
-      await message.reply({ content: 'Ошибка AI, попробуй позже.' });
+      console.error('Ошибка Mistral:', e.message || e);
+      await message.reply({ content: '⚠️ Ошибка AI: ' + (e.message || 'неизвестная ошибка') + '. Попробуй позже.' }).catch(() => {});
     }
     return;
   }

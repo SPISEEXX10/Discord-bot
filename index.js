@@ -118,7 +118,7 @@ async function sendApplicationPanel(channel) {
     .setAuthor({ name: 'Набор' })
     .setTitle('Sexy')
     .setDescription('Вступай к нам становись сильнее')
-    .setImage('https://cdn.discordapp.com/attachments/1514652476157067358/1514875029198995456/preview.png?ex=6a2cf4cf&is=6a2ba34f&hm=1141f9f7b77f37c3ae5e3d2d1293c35bbcea0732fd637dc35c8d4385ac9eabf4&');
+    .setImage('https://cdn.discordapp.com/attachments/1514652482020704506/1514875294375477309/preview.png?ex=6a2cf50f&is=6a2ba38f&hm=6a76851428193255139b4e231db0ee72b162cf7948d51b921c67257351c187d2&');
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

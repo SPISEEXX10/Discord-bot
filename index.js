@@ -430,6 +430,7 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
 
+  if (!message.content || message.partial) return;
   if (processedMessages.has(message.id)) return;
   processedMessages.add(message.id);
   setTimeout(() => processedMessages.delete(message.id), 30000);

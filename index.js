@@ -224,15 +224,28 @@ client.on('interactionCreate', async (interaction) => {
         .setStyle(ButtonStyle.Danger),
     );
 
+    // Сначала отвечаем Discord чтобы заблокировать повторный вызов
+    await interaction.deferReply({ ephemeral: true });
+
     try {
       const resultChannel = interaction.guild.channels.cache.get(config.application.resultChannelId);
       if (resultChannel) {
+        // Проверяем не было ли уже заявки от этого юзера за последние 30 сек
+        const recent = await resultChannel.messages.fetch({ limit: 10 });
+        const alreadySent = recent.find(m =>
+          m.author.id === client.user.id &&
+          m.embeds[0]?.description === `Заявка от <@${userId}>` &&
+          Date.now() - m.createdTimestamp < 30000
+        );
+        if (alreadySent) {
+          return interaction.editReply({ content: 'Заявка уже отправлена!' });
+        }
         await resultChannel.send({ embeds: [embed], components: [row] });
       }
-      await interaction.reply({ content: 'Заявка отправлена! Модераторы рассмотрят её в ближайшее время.', ephemeral: true });
+      await interaction.editReply({ content: 'Заявка отправлена! Модераторы рассмотрят её в ближайшее время.' });
     } catch (e) {
       console.error('Ошибка отправки заявки:', e);
-      await interaction.reply({ content: 'Не удалось отправить заявку. Попробуй позже.', ephemeral: true });
+      try { await interaction.editReply({ content: 'Не удалось отправить заявку. Попробуй позже.' }); } catch {}
     }
     return;
   }

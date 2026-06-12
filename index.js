@@ -305,8 +305,9 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: 'Только для администраторов.', ephemeral: true });
     }
+    await interaction.deferReply({ ephemeral: true });
     await sendApplicationPanel(interaction.channel);
-    await interaction.reply({ content: 'Панель заявок отправлена!', ephemeral: true });
+    await interaction.editReply({ content: 'Панель заявок отправлена!' });
   }
 });
 
@@ -400,11 +401,17 @@ client.on('messageCreate', async (message) => {
 client.once('clientReady', async () => {
   console.log(`Бот запущен как ${client.user.tag}`);
   try {
-    await client.guilds.cache.get('1514647929732988948')?.commands.create({
-      name: 'app-panel',
-      description: 'Отправить панель заявок в клан (только для админов)',
-    });
-    console.log('Команда /app-panel зарегистрирована');
+    const guild = client.guilds.cache.get('1514647929732988948');
+    if (guild) {
+      // Удаляем все старые команды и регистрируем заново — без дублей
+      await guild.commands.set([
+        {
+          name: 'app-panel',
+          description: 'Отправить панель заявок в клан (только для админов)',
+        }
+      ]);
+      console.log('Команда /app-panel зарегистрирована');
+    }
   } catch (e) {
     console.error('Ошибка регистрации команды:', e.message);
   }

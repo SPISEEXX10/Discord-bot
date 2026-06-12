@@ -115,8 +115,10 @@ function isIgnored(member) {
 async function sendApplicationPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle(config.application.panelTitle)
-    .setDescription(config.application.panelDescription);
+    .setAuthor({ name: 'Набор' })
+    .setTitle('Sexy')
+    .setDescription('Вступай к нам становись сильнее')
+    .setImage('https://cdn.discordapp.com/attachments/1514652476157067358/1514875029198995456/preview.png?ex=6a2cf4cf&is=6a2ba34f&hm=1141f9f7b77f37c3ae5e3d2d1293c35bbcea0732fd637dc35c8d4385ac9eabf4&');
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

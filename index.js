@@ -366,7 +366,7 @@ client.on('interactionCreate', async (interaction) => {
 // MISTRAL AI
 // ============================================================
 
-function callMistral(userMessage) {
+function callMistralOnce(userMessage) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
       model: 'mistral-small-latest',
@@ -395,13 +395,13 @@ function callMistral(userMessage) {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
+          console.log('Mistral response status:', res.statusCode, JSON.stringify(json).slice(0, 300));
           if (!json.choices || !json.choices[0]) {
-            console.error('Mistral bad response:', JSON.stringify(json));
-            return reject(new Error(json.error?.message || 'No choices in response'));
+            return reject(new Error(json.error?.message || `HTTP ${res.statusCode}: No choices in response`));
           }
           resolve(json.choices[0].message.content.trim());
         } catch (e) {
-          console.error('Mistral parse error, raw response:', data);
+          console.error('Mistral parse error, raw:', data.slice(0, 300));
           reject(e);
         }
       });
@@ -414,6 +414,18 @@ function callMistral(userMessage) {
     req.write(payload);
     req.end();
   });
+}
+
+async function callMistral(userMessage, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await callMistralOnce(userMessage);
+    } catch (e) {
+      console.error(`Mistral attempt ${i + 1} failed:`, e.message);
+      if (i < retries) await new Promise(r => setTimeout(r, 1500));
+      else throw e;
+    }
+  }
 }
 
 // ============================================================

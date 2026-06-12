@@ -129,6 +129,7 @@ async function sendApplicationPanel(channel) {
 }
 
 const processedInteractions = new Set();
+const recentSubmissions = new Map();
 
 client.on('interactionCreate', async (interaction) => {
   if (processedInteractions.has(interaction.id)) return;
@@ -186,13 +187,18 @@ client.on('interactionCreate', async (interaction) => {
 
   // Получение заполненной формы
   if (interaction.isModalSubmit() && interaction.customId === 'app_modal') {
+    const userId = interaction.user.id;
+    const now = Date.now();
+    if (recentSubmissions.has(userId) && now - recentSubmissions.get(userId) < 10000) {
+      return interaction.reply({ content: 'Подожди немного перед повторной отправкой.', ephemeral: true });
+    }
+    recentSubmissions.set(userId, now);
+    setTimeout(() => recentSubmissions.delete(userId), 10000);
     const nickname = interaction.fields.getTextInputValue('nickname');
     const age = interaction.fields.getTextInputValue('age');
     const activity = interaction.fields.getTextInputValue('activity');
     const cheat = interaction.fields.getTextInputValue('cheat');
     const source = interaction.fields.getTextInputValue('source');
-
-    const userId = interaction.user.id;
 
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)

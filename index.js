@@ -22,7 +22,7 @@ const config = {
   ],
 
   application: {
-    panelTitle: '📋 Заявка в клан',
+    panelTitle: 'Заявка в клан',
     panelDescription: 'Нажми кнопку ниже чтобы подать заявку.\nМодераторы рассмотрят её как можно скорее.',
     resultChannelId: '1514861190386286622',
   },
@@ -50,7 +50,6 @@ function cleanHistory(userId) {
 }
 
 async function sendLog(guild, embed) {
-  console.log(`[MOD] ${embed.data.title} — ${embed.data.description}`);
   if (!config.logChannelId) return;
   try {
     const ch = guild.channels.cache.get(config.logChannelId);
@@ -187,6 +186,8 @@ client.on('interactionCreate', async (interaction) => {
     const cheat = interaction.fields.getTextInputValue('cheat');
     const source = interaction.fields.getTextInputValue('source');
 
+    const userId = interaction.user.id;
+
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle('Новая заявка в клан')
@@ -197,13 +198,24 @@ client.on('interactionCreate', async (interaction) => {
         { name: 'Чит', value: cheat },
         { name: 'Откуда узнал о клане', value: source },
       )
-      .setFooter({ text: `${interaction.user.username} · ${interaction.user.id}` })
+      .setDescription(`Заявка от <@${userId}>`)
       .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`app_accept_${userId}`)
+        .setLabel('Принять')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`app_deny_${userId}`)
+        .setLabel('Отказать')
+        .setStyle(ButtonStyle.Danger),
+    );
 
     try {
       const resultChannel = interaction.guild.channels.cache.get(config.application.resultChannelId);
       if (resultChannel) {
-        await resultChannel.send({ embeds: [embed] });
+        await resultChannel.send({ embeds: [embed], components: [row] });
       }
       await interaction.reply({ content: 'Заявка отправлена! Модераторы рассмотрят её в ближайшее время.', ephemeral: true });
     } catch (e) {
@@ -211,6 +223,82 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply({ content: 'Не удалось отправить заявку. Попробуй позже.', ephemeral: true });
     }
     return;
+  }
+
+  // Кнопки принять / отказать
+  if (interaction.isButton()) {
+    const isMod =
+      interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
+      interaction.member.roles.cache.some(r =>
+        config.ignoredRoles.slice(0, 10).some(name => r.name.toUpperCase() === name.toUpperCase())
+      );
+
+    if (!isMod) {
+      return interaction.reply({ content: 'Только модераторы могут рассматривать заявки.', ephemeral: true });
+    }
+
+    if (interaction.customId.startsWith('app_accept_')) {
+      const targetUserId = interaction.customId.replace('app_accept_', '');
+
+      // Обновляем embed — убираем кнопки, меняем цвет
+      const oldEmbed = interaction.message.embeds[0];
+      const updatedEmbed = EmbedBuilder.from(oldEmbed)
+        .setColor(0x57f287)
+        .setFooter({ text: `Принял: ${interaction.user.username}` });
+
+      await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
+
+      // ЛС игроку
+      try {
+        const targetUser = await client.users.fetch(targetUserId);
+        await targetUser.send('Привет! Твоя заявка в клан была **принята**. Добро пожаловать!');
+      } catch {
+        console.log('Не удалось отправить ЛС пользователю');
+      }
+
+      // Лог
+      await sendLog(interaction.guild, makeLogEmbed(
+        0x57f287,
+        'Заявка принята',
+        `<@${targetUserId}> был принят в клан`,
+        [{ name: 'Модератор', value: `<@${interaction.user.id}>`, inline: true }]
+      ));
+
+      await interaction.reply({ content: 'Заявка принята, игрок уведомлён в ЛС.', ephemeral: true });
+      return;
+    }
+
+    if (interaction.customId.startsWith('app_deny_')) {
+      const targetUserId = interaction.customId.replace('app_deny_', '');
+
+      // Обновляем embed — убираем кнопки, меняем цвет
+      const oldEmbed = interaction.message.embeds[0];
+      const updatedEmbed = EmbedBuilder.from(oldEmbed)
+        .setColor(0xed4245)
+        .setFooter({ text: `Отказал: ${interaction.user.username}` });
+
+      await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
+
+      // ЛС игроку
+      try {
+        const targetUser = await client.users.fetch(targetUserId);
+        await targetUser.send('Привет! Твоя заявка в клан была **отклонена**. Удачи в следующий раз!');
+      } catch {
+        console.log('Не удалось отправить ЛС пользователю');
+      }
+
+      // Лог
+      await sendLog(interaction.guild, makeLogEmbed(
+        0xed4245,
+        'Заявка отклонена',
+        `<@${targetUserId}> получил отказ`,
+        [{ name: 'Модератор', value: `<@${interaction.user.id}>`, inline: true }]
+      ));
+
+      await interaction.reply({ content: 'Заявка отклонена, игрок уведомлён в ЛС.', ephemeral: true });
+      return;
+    }
   }
 
   if (interaction.isChatInputCommand() && interaction.commandName === 'app-panel') {
@@ -309,7 +397,7 @@ client.on('messageCreate', async (message) => {
 // СТАРТ
 // ============================================================
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`Бот запущен как ${client.user.tag}`);
   try {
     await client.guilds.cache.get('1514647929732988948')?.commands.create({

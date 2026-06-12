@@ -430,11 +430,12 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
 
+  if (processedMessages.has(message.id)) return;
+  processedMessages.add(message.id);
+  setTimeout(() => processedMessages.delete(message.id), 30000);
+
   // AI чат
   if (message.channelId === config.ai.channelId) {
-    if (processedMessages.has(message.id)) return;
-    processedMessages.add(message.id);
-    setTimeout(() => processedMessages.delete(message.id), 30000);
 
     const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
     const hasRole = member && config.ai.allowedRoleIds.some(id =>

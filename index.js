@@ -24,11 +24,23 @@ const config = {
 
   ai: {
     channelId: '1514876453848612914',
-    allowedRoles: [
-      'OWNER', 'CO.OWNER', 'CCG', 'ADMINISTRATOR', 'ML ADMINISTRATOR',
-      'FAME', 'PRIME SEXY', 'TEX.ADMIN', 'CURATOR', 'SUPPORT',
-      'DISCORD.GG/SEXY', 'BOT', 'BurmaldaPyk', 'ApplicationBoy',
-      'ML.ADMINISTRATOR',
+    allowedRoleIds: [
+      '1514652354769715321',
+      '1514652351523328080',
+      '1514652350122557582',
+      '1514652348830584913',
+      '1514652347500859545',
+      '1514652346360135842',
+      '1514652344984404008',
+      '1514652343520591893',
+      '1514652341926887434',
+      '1514652340664406207',
+      '1514652339192070234',
+      '1514652337891704903',
+      '1514652336428023999',
+      '1514648192833294449',
+      '1514881519733444660',
+      '1514652332632309921',
     ],
   },
 
@@ -407,8 +419,8 @@ client.on('messageCreate', async (message) => {
   // AI чат
   if (message.channelId === config.ai.channelId) {
     const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
-    const hasRole = member && config.ai.allowedRoles.some(name =>
-      member.roles.cache.some(r => r.name === name)
+    const hasRole = member && config.ai.allowedRoleIds.some(id =>
+      member.roles.cache.has(id)
     );
     if (!hasRole) {
       const reply = await message.reply({ content: 'У вас нет роли чтобы писать боту сообщение.' });

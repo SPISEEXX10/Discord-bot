@@ -425,11 +425,11 @@ async function callMistral(userMessage) {
 // ============================================================
 
 const processedMessages = new Set();
+const aiCooldown = new Map();
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
-
   if (!message.content || message.partial) return;
   if (processedMessages.has(message.id)) return;
   processedMessages.add(message.id);
@@ -437,6 +437,10 @@ client.on('messageCreate', async (message) => {
 
   // AI чат
   if (message.channelId === config.ai.channelId) {
+    const now = Date.now();
+    const lastTime = aiCooldown.get(message.author.id) || 0;
+    if (now - lastTime < 3000) return;
+    aiCooldown.set(message.author.id, now);
 
     const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
     const hasRole = member && config.ai.allowedRoleIds.some(id =>

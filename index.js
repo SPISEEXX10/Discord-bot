@@ -1,3 +1,4 @@
+const https = require('https');
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 const config = {
@@ -20,6 +21,16 @@ const config = {
     'FAME', 'PRIME ARCHANGEL', 'TEX.ADMIN', 'CURATOR',
     'SUPPORT', 'MEDIA', 'MODERATOR', 'ML.MODERATOR', 'HELPER',
   ],
+
+  ai: {
+    channelId: '1514876453848612914',
+    allowedRoles: [
+      'OWNER', 'CO.OWNER', 'CCG', 'ADMINISTRATOR', 'ML ADMINISTRATOR',
+      'FAME', 'PRIME SEXY', 'TEX.ADMIN', 'CURATOR', 'SUPPORT',
+      'DISCORD.GG/SEXY', 'BOT', 'BurmaldaPyk', 'ApplicationBoy',
+      'ML.ADMINISTRATOR',
+    ],
+  },
 
   application: {
     panelTitle: 'Заявка в клан',
@@ -338,6 +349,53 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+
+// ============================================================
+// MISTRAL AI
+// ============================================================
+
+function callMistral(userMessage) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      model: 'mistral-small-latest',
+      messages: [
+        { role: 'system', content: 'Ты помощник в Discord сервере клана. Отвечай коротко и по делу на русском языке.' },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const options = {
+      hostname: 'api.mistral.ai',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.MISTRAL_TOKEN}`,
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json.choices[0].message.content.trim());
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
 // ============================================================
 // АВТОМОДЕРАЦИЯ
 // ============================================================
@@ -345,6 +403,29 @@ client.on('interactionCreate', async (interaction) => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
+
+  // AI чат
+  if (message.channelId === config.ai.channelId) {
+    const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
+    const hasRole = member && config.ai.allowedRoles.some(name =>
+      member.roles.cache.some(r => r.name === name)
+    );
+    if (!hasRole) {
+      const reply = await message.reply({ content: 'У вас нет роли чтобы писать боту сообщение.' });
+      setTimeout(() => reply.delete().catch(() => {}), 5000);
+      try { await message.delete(); } catch {}
+      return;
+    }
+    try {
+      await message.channel.sendTyping();
+      const response = await callMistral(message.content);
+      await message.reply({ content: response });
+    } catch (e) {
+      console.error('Ошибка Mistral:', e.message);
+      await message.reply({ content: 'Ошибка AI, попробуй позже.' });
+    }
+    return;
+  }
 
   const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
   if (!member) return;
